@@ -2,18 +2,13 @@
 ### influence of software model on student performance and affect ###
 #####################################################################
 
-install.packages("reshape")
-install.packages("plyr")
-install.packages("car")
-install.packages("reverse.code")
-library("reshape")
-library("plyr")
-library("car")
-library("reverse.code")
+#install.packages("reshape"); install.packages("plyr"); install.packages("car"); install.packages("reverse.code"); install.packages("dplyr")
+library("reshape"); library("plyr"); library("dplyr"); library("car"); library("reverse.code")
+
 setwd("~/Desktop/Freeman_stats/")
 
 #read in data
-a <- read.csv("preliminary_030716.csv")
+a <- read.csv("data_final.csv")
 attach(a)
 head(a)
 
@@ -44,7 +39,7 @@ a[,111] <- ifelse(a[,111] == 5, 1,
                                       ifelse(a[,111] == 1, 5, "NA"))))) 
 
 #melt and reshape
-b <- melt(a, id=c("ID","section","Gender","URM","FirstGen","EOP","UW_GPA","Transfer","SATM","SATV"))
+b <- melt(a, id=c("ID", "section","Gender","URM","FirstGen","EOP","UW_GPA","Transfer","SATM","SATV", "Ex3tot"))
 head(b)
 attach(b)
 c <- b[order(ID),]
@@ -158,6 +153,31 @@ head(d)
 # subset for clarity 
 e <- d[, -c(4,5,6,8,9,10)]
 head(e)
+
+# separate pre- and post- content scores
+pre <- e[grep("Pre", e$variable),]
+post <- e[grep("Post", e$variable),]
+names(pre)[names(pre)=="variable"] <- "ContentID"
+names(pre)[names(pre)=="value"] <- "ContentPreScore"
+names(post)[names(post)=="value"] <- "ContentPostScore"
+ContentPostScore <- post[,6]
+g <- cbind(pre, ContentPostScore)
+attach(g)
+
+# separate pre- and post- affect scores
+affect <- g[grep("Q12", g$ContentID),]
+names(affect)[names(affect)=="ContentID"] <- "AffectID"
+names(affect)[names(affect)=="ContentPreScore"] <- "AffectPreScore"
+names(affect)[names(affect)=="ContentPostScore"] <- "AffectPostScore"
+h <- affect[, -c(2,3,4,7,8,9)]
+attach(h)
+
+# merge dataframes
+data <- merge(g,h)
+head(data)
+
+### now let's look at some *models!* ###
+
 
 
 
