@@ -150,17 +150,13 @@ if (c$variable[i] == "PostQ10d") InApp[i] <- 1
 d <- cbind(c, InApp)
 head(d)
                   
-# subset for clarity 
-e <- d[, -c(4,5,6,8,9,10)]
-head(e)
-
 # separate pre- and post- content scores
-pre <- e[grep("Pre", e$variable),]
-post <- e[grep("Post", e$variable),]
+pre <- d[grep("Pre", e$variable),]
+post <- d[grep("Post", e$variable),]
 names(pre)[names(pre)=="variable"] <- "ContentID"
 names(pre)[names(pre)=="value"] <- "ContentPreScore"
 names(post)[names(post)=="value"] <- "ContentPostScore"
-ContentPostScore <- post[,6]
+ContentPostScore <- post[,13]
 g <- cbind(pre, ContentPostScore)
 attach(g)
 
@@ -169,16 +165,14 @@ affect <- g[grep("Q12", g$ContentID),]
 names(affect)[names(affect)=="ContentID"] <- "AffectID"
 names(affect)[names(affect)=="ContentPreScore"] <- "AffectPreScore"
 names(affect)[names(affect)=="ContentPostScore"] <- "AffectPostScore"
-h <- affect[, -c(2,3,4,7,8,9)]
-attach(h)
 
 # merge dataframes
-data <- merge(g,h)
+data <- merge(g,affe)
 head(data)
 
 ### now let's look at some *models!* ###
 
-
+modAll.1e <- lm(Ex3tot ~ UW_GPA + ContentID + ContentPreScore + SOI + AC + section*SOI + section*Gender)
 
 
 
