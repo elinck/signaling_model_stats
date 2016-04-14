@@ -2,15 +2,13 @@
 ### influence of software model on student performance and affect ###
 #####################################################################
 
-#install.packages("reshape"); install.packages("plyr"); install.packages("car"); install.packages("reverse.code"); install.packages("dplyr")
-library("reshape"); library("plyr"); library("dplyr"); library("car"); library("reverse.code")
+install.packages("reshape"); install.packages("plyr"); install.packages("car"); install.packages("reverse.code"); install.packages("dplyr"); install.packages("MASS")
+library("reshape"); library("plyr"); library("dplyr"); library("car"); library("reverse.code"); library("MASS")
 
 setwd("~/Desktop/Freeman_stats/")
 
-
-
 #read in data
-a <- read.csv("data_final.csv")
+a <- read.csv("data_final.csv", stringsAsFactors=FALSE)
 #attach(a)
 head(a)
 
@@ -172,21 +170,18 @@ g <- cbind(pre, ContentPostScore)
 g$ContentPreScore<-as.numeric(g$ContentPreScore)
 head(g)
 
-
-
-
 # separate pre- and post- affect scores
 affect <- g[grep("Q12", g$ContentID),]
 names(affect)[names(affect)=="ContentID"] <- "AffectID"
 names(affect)[names(affect)=="ContentPreScore"] <- "AffectPreScore"
 names(affect)[names(affect)=="ContentPostScore"] <- "AffectPostScore"
 
-
 # merge dataframes
 data <- merge(g,affect)
 head(data)
 data[data==""] <-NA
 data <- na.omit(data)
+data$ContentPostScore <- as.numeric(as.factor(data$ContentPostScore))
 
 #basic patterns
 aggregate(Ex3tot~section+Gender, data, mean)
@@ -236,29 +231,47 @@ anova(modAll.7e, test="Chisq")
 AIC(modAll.1e,modAll.2e,modAll.3e,modAll.4e,modAll.5e,modAll.6e,modAll.7e)
 BIC(modAll.1e,modAll.2e,modAll.3e,modAll.4e,modAll.5e,modAll.6e,modAll.7e)
 
-
-
 # need data=data or to name each variable data$UW_GPA to avoid using attach()
 
+#basic patterns
+aggregate(ContentPostScore~section+Gender, data, mean)
+aggregate(ContentPostScore~section, data, mean)
 
+ttest_gender <- t.test(ContentPostScore~Gender, data)
+ttest_section <- t.test(ContentPostScore~section, data)
+boxplot(ContentPostScore~section, data=data, main="Post Scores by Section", xlab="Section", ylab="Mean Post Score")
+boxplot(ContentPostScore~Gender, data=data, main="Post Scores by Gender", xlab="Gender", ylab="Mean Post Score")
 
+modAll.1p <- lm(ContentPostScore ~ UW_GPA + ContentID + SATM + SATV + ContentPreScore + SOI + section + Gender + section*SOI + section*Gender, data=data)
+# need data=data or to name each variable data$UW_GPA to avoid using attach()
+summary(modAll.1p)
+anova(modAll.1e, test="Chisq") 
 
+#remove SATM
+modAll.2p <- lm(ContentPostScore ~ UW_GPA + ContentID + SATV + ContentPreScore + SOI + section + Gender + section*SOI + section*Gender, data=data)
+summary(modAll.2p)
+anova(modAll.2p, test="Chisq") 
 
+#remove Gender
+modAll.3p <- lm(ContentPostScore ~ UW_GPA + SATV + ContentID + ContentPreScore + SOI + section + section*SOI, data=data)
+summary(modAll.3p)
+anova(modAll.3p, test="Chisq") 
 
+#remove SOI
+modAll.4p <- lm(ContentPostScore ~ UW_GPA + SATV + ContentID + ContentPreScore + section, data=data)
+summary(modAll.4p)
+anova(modAll.4p, test="Chisq") 
 
-# want to see 
-# I was having some issues with the variable AC in the above model (returning NA coefficients)
-# it isn't necessary there (affect question group is irrelevant to exam scores)
-# so I want to see if I have problems with it in the models that it will be included in:
-library(MASS)
+AIC(modAll.1p,modAll.2p,modAll.3p,modAll.4p)
+BIC(modAll.1p,modAll.2p,modAll.3p,modAll.4p)
 
-modtry <- polr(as.factor(AffectPostScore) ~ UW_GPA + AffectPreScore + AffectID + as.factor(AC) +
-                 SOI + Gender + section*SOI + section*Gender, data=data,Hess=TRUE) #, na.action=na.omit)
+### understanding affect post scores ###
+
+modtry <- polr(as.factor(AffectPostScore) ~ UW_GPA + AffectPreScore + AffectID + as.factor(AC) + SOI + Gender + section*SOI + section*Gender, data=data,Hess=TRUE) #, na.action=na.omit)
 summary(modtry)
 # dropping AC 
 
-modtry2 <- lm(AffectPostScore ~ UW_GPA + AffectPreScore + AffectID + as.numeric(AC) +
-                SOI + Gender + section*SOI + section*Gender, data=data)#,Hess=TRUE) #, na.action=na.omit)
+modtry2 <- lm(AffectPostScore ~ UW_GPA + AffectPreScore + AffectID + as.numeric(AC) + SOI + Gender + section*SOI + section*Gender, data=data)#,Hess=TRUE) #, na.action=na.omit)
 summary(modtry2)
 # dropping AC 
 
