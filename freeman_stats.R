@@ -2,8 +2,8 @@
 ### influence of software model on student performance and affect ###
 #####################################################################
 
-install.packages("reshape"); install.packages("plyr"); install.packages("car"); install.packages("reverse.code"); install.packages("dplyr"); install.packages("MASS")
-library("reshape"); library("plyr"); library("dplyr"); library("car"); library("reverse.code"); library("MASS")
+#install.packages("reshape"); install.packages("plyr"); install.packages("car"); install.packages("reverse.code"); install.packages("dplyr"); install.packages("MASS")
+library("reshape"); library("plyr"); library("dplyr"); library("car"); library("MASS")
 
 setwd("~/Desktop/Freeman_stats/")
 
@@ -47,7 +47,6 @@ b <- melt(a, id=c("ID", "section","Gender","URM","FirstGen","EOP","UW_GPA","Tran
 head(b)
 #attach(b)
 #c <- b[order("ID"),]
-
 
 c <- b
 dim(c)
@@ -177,12 +176,31 @@ names(affect_data)[names(affect_data)=="ContentPreScore"] <- "AffectPreScore"
 names(affect_data)[names(affect_data)=="ContentPostScore"] <- "AffectPostScore"
 
 #cleaning data
+
 content_data <- content_data[complete.cases(content_data[c(2,17)]),]
 affect_data <- affect_data[complete.cases(affect_data[c(2,17)]),]
 content_data$ContentPreScore <- as.numeric(as.factor(content_data$ContentPreScore)) # 0,1 becomes 1,2
 content_data$ContentPostScore <- as.numeric(as.factor(content_data$ContentPostScore)) # 0,1 becomes 1,2
 affect_data$AffectPreScore <- as.numeric(as.factor(affect_data$AffectPreScore)) # 0,1 becomes 1,2
 affect_data$AffectPostScore <- as.numeric(as.factor(affect_data$AffectPostScore)) # 0,1 becomes 1,2
+content_data <- subset(content_data, select=-c(AC))
+content_data <- na.omit(content_data)
+affect_data <- subset(affect_data, select=-c(AC))
+affect_data <- na.omit(affect_data)
+head(content_data)
+head(affect_data)
+
+# add variable SumPreQ which is the sum of the content prescores
+content_data_NEWall <-ddply(content_data, c('ID'), transform, SumPreQ = sum(ContentPreScore)) 
+
+# add variable SumPostQ which is the sum of the content postscores - probably don't need this but will include for consistency
+content_data_NEWPostall <-ddply(content_data_NEWall, c('ID'), transform, SumPostQ = sum(ContentPostScore))
+
+# Drop duplicates so that there is only one observation per stuent
+content_data_NEW1 <- content_data_NEWPostall[!duplicated(content_data_NEWPostall$ID),]
+
+# Drop NAs (15 NAs in SumPreQ and 3 NAs in ex3tot): table(is.na(content_data_NEW1$SumPreQ))
+content_data <- content_data_NEW1[is.na(content_data_NEW1$SumPreQ)=="FALSE" & is.na(content_data_NEW1$Ex3tot)=="FALSE",]
 
 ##########################
 # basic patterns #
@@ -231,22 +249,22 @@ anova(modAll.1e, test="Chisq")
 # remove ContentID as least sig
 modAll.2e <- lm(Ex3tot ~ UW_GPA + SATM + SATV + ContentPreScore + SOI + section + Gender + section*SOI + section*Gender, data=content_data)
 summary(modAll.2e)
-anova(modAll.2e, test="Chisq") 
+anova(modAll.1e, modAll.2e, test="Chisq") 
 
 #remove SATM as least significant
 modAll.3e <- lm(Ex3tot ~ UW_GPA + SATV + ContentPreScore + SOI + section + Gender + section*SOI + section*Gender, data=content_data)
 summary(modAll.3e)
-anova(modAll.3e, test="Chisq") 
+anova(modAll.2e, modAll.3e, test="Chisq") 
 
 #remove content pre-score as least significant
 modAll.4e <- lm(Ex3tot ~ UW_GPA + SATV + SOI + section + Gender + section*SOI + section*Gender, data=content_data)
 summary(modAll.4e)
-anova(modAll.4e, test="Chisq") 
+anova(modAll.3e, modAll.4e, test="Chisq") 
 
 #remove Section*Gender as least significant
 modAll.5e <- lm(Ex3tot ~ UW_GPA + SATV + SOI + section + Gender + section*SOI, data=content_data)
 summary(modAll.5e)
-anova(modAll.5e, test="Chisq") 
+anova(modAll.4e, modAll.5e, test="Chisq") 
 
 #all variables now highly significant
 AIC(modAll.1e,modAll.2e,modAll.3e,modAll.4e,modAll.5e)
@@ -262,55 +280,73 @@ anova(modAll.1p, test="Chisq")
 #remove SOI*section
 modAll.2p <- lm(ContentPostScore ~ UW_GPA + ContentID + SATM + SATV + ContentPreScore + SOI + section + Gender + section*Gender, data=content_data)
 summary(modAll.2p)
-anova(modAll.2p, test="Chisq") 
+anova(modAll.1p, modAll.2p, test="Chisq") 
 
 #remove section*Gender
 modAll.3p <- lm(ContentPostScore ~ UW_GPA + ContentID + SATM + SATV + ContentPreScore + SOI + section + Gender, data=content_data)
 summary(modAll.3p)
-anova(modAll.3p, test="Chisq") 
+anova(modAll.2p, modAll.3p, test="Chisq") 
 
 #remove SATM
 modAll.4p <- lm(ContentPostScore ~ UW_GPA + ContentID + SATV + ContentPreScore + SOI + section + Gender, data=content_data)
 summary(modAll.4p)
-anova(modAll.4p, test="Chisq") 
+anova(modAll.3p, modAll.4p, test="Chisq") 
 
 #remove SATV
 modAll.5p <- lm(ContentPostScore ~ UW_GPA + ContentID + ContentPreScore + SOI + section + Gender, data=content_data)
-summary(modAll.5p)
-anova(modAll.5p, test="Chisq") 
+summary(modAll.4p, modAll.5p, test="Chisq")
+#anova(modAll.modAll.5p, test="Chisq") 
 
 #remove Gender
-modAll.5p <- lm(ContentPostScore ~ UW_GPA + ContentID + ContentPreScore + SOI + section, data=content_data)
-summary(modAll.5p)
-anova(modAll.5p, test="Chisq") 
+modAll.6p <- lm(ContentPostScore ~ UW_GPA + ContentID + ContentPreScore + SOI + section, data=content_data)
+summary(modAll.5p, modAll.6p)
+#anova(modAll.4p, modAll.5p, test="Chisq") 
 
 #remove section
-modAll.6p <- lm(ContentPostScore ~ UW_GPA + ContentID + ContentPreScore + SOI, data=content_data)
-summary(modAll.6p)
-anova(modAll.6p, test="Chisq") 
+modAll.7p <- lm(ContentPostScore ~ UW_GPA + ContentID + ContentPreScore + SOI, data=content_data)
+summary(modAll.7p)
+anova(modAll.6p, modAll.7p, test="Chisq") 
 
 #all variables are highly significant
 
-AIC(modAll.1p,modAll.2p,modAll.3p,modAll.4p,modAll.5p)
-BIC(modAll.1p,modAll.2p,modAll.3p,modAll.4p,modAll.6p)
+#AIC(modAll.1p,modAll.2p,modAll.3p,modAll.4p,modAll.5p)
+#BIC(modAll.1p,modAll.2p,modAll.3p,modAll.4p,modAll.6p)
 
 ### modelling for AffectPostScore
+modAll.1b <- polr(as.factor(AffectPostScore) ~ UW_GPA + AffectPreScore + AffectID + as.factor(AC) + SOI + Gender + section*SOI + AC*SOI + section*Gender, data=affect_data,Hess=TRUE) #, na.action=na.omit)
+summary(modAll.1a)
 
-modAll.1a <- polr(as.factor(AffectPostScore) ~ UW_GPA + AffectPreScore + AffectID + as.factor(AC) + SOI + Gender + section*SOI + section*Gender, data=affect_data,Hess=TRUE) #, na.action=na.omit)
+modAll.2b <- polr(as.factor(AffectPostScore) ~ UW_GPA + AffectPreScore + AffectID + as.factor(AC) + SOI + Gender + section*SOI + AC*SOI + section*Gender, data=affect_data,Hess=TRUE) #, na.action=na.omit)
 summary(modAll.1a)
 
 # dropping gender*section
 modAll.2a <- polr(as.factor(AffectPostScore) ~ UW_GPA + AffectPreScore + AffectID + as.factor(AC) + SOI + Gender + section*SOI, data=affect_data,Hess=TRUE) #, na.action=na.omit)
 summary(modAll.2a)
+anova(modAll.1a, modAll.2a)
 
 # dropping Gender
 modAll.3a <- polr(as.factor(AffectPostScore) ~ UW_GPA + AffectPreScore + AffectID + as.factor(AC) + SOI + section*SOI, data=affect_data,Hess=TRUE) #, na.action=na.omit)
 summary(modAll.3a)
+anova(modAll.2a, modAll.3a)
 
 # dropping SOI
 modAll.4a <- polr(as.factor(AffectPostScore) ~ UW_GPA + AffectPreScore + AffectID + as.factor(AC) + section*SOI, data=affect_data,Hess=TRUE) #, na.action=na.omit)
 summary(modAll.4a)
+anova(modAll.3a, modAll.4a)
 
 AIC(modAll.1a,modAll.2a,modAll.3a,modAll.4a)
 BIC(modAll.1a,modAll.2a,modAll.3a,modAll.4a)
 
+# dropping SOI
+modAll.1a <- polr(as.factor(AffectPostScore) ~ UW_GPA + AffectPreScore + AffectID + as.factor(AC) + SOI + Gender + section*SOI + section*Gender, data=affect_data,Hess=TRUE) #, na.action=na.omit)
+
+AffectPostScore ~ section + SOI + affectID + AC*section + AC*SOI
+
+#### Notes: ####
+# - keep code in safe place
+# - write a report (models and betas) (rmarkdown)
+# - timesheet (bring hours forward)
+# - remove *all* of the NAs
+# - polr: can't include question ID and cluster in same model. but if we want to know *what* aspect of affect is interacting with SOI, interact cluster with SOI (affect ID, not affect cluster)
+# - (would look like: AffectPostScore ~ section + SOI + affectID + AC*section + AC*SOI) (do full model selection process)
+####
