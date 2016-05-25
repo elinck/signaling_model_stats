@@ -176,7 +176,6 @@ names(affect_data)[names(affect_data)=="ContentPreScore"] <- "AffectPreScore"
 names(affect_data)[names(affect_data)=="ContentPostScore"] <- "AffectPostScore"
 
 #cleaning data
-
 content_data <- content_data[complete.cases(content_data[c(2,17)]),]
 affect_data <- affect_data[complete.cases(affect_data[c(2,17)]),]
 content_data$ContentPreScore <- as.numeric(as.factor(content_data$ContentPreScore)) # 0,1 becomes 1,2
@@ -185,7 +184,6 @@ affect_data$AffectPreScore <- as.numeric(as.factor(affect_data$AffectPreScore)) 
 affect_data$AffectPostScore <- as.numeric(as.factor(affect_data$AffectPostScore)) # 0,1 becomes 1,2
 content_data <- subset(content_data, select=-c(AC))
 content_data <- na.omit(content_data)
-affect_data <- subset(affect_data, select=-c(AC))
 affect_data <- na.omit(affect_data)
 head(content_data)
 head(affect_data)
@@ -200,153 +198,168 @@ content_data_NEWPostall <-ddply(content_data_NEWall, c('ID'), transform, SumPost
 content_data_NEW1 <- content_data_NEWPostall[!duplicated(content_data_NEWPostall$ID),]
 
 # Drop NAs (15 NAs in SumPreQ and 3 NAs in ex3tot): table(is.na(content_data_NEW1$SumPreQ))
-content_data <- content_data_NEW1[is.na(content_data_NEW1$SumPreQ)=="FALSE" & is.na(content_data_NEW1$Ex3tot)=="FALSE",]
+# use this dataset for modeling Exam score - remmeber no need to include ContentID because there is no variation in ContentID that explains Exam score...because students only hae 1 exam score, regardless of the number of content questions
+content_dataEx <- content_data_NEW1[is.na(content_data_NEW1$SumPreQ)=="FALSE" & is.na(content_data_NEW1$Ex3tot)=="FALSE",]
 
-##########################
-# basic patterns #
-##########################
-
-#basic patterns with exam totals
-aggregate(Ex3tot~section + Gender, content_data, mean)
-aggregate(Ex3tot~section, content_data, mean)
-ttest_gender <- t.test(Ex3tot~Gender, content_data)
-print(ttest_gender)
-ttest_section <- t.test(Ex3tot~section, content_data)
-print(ttest_section)
-boxplot(Ex3tot~section, data=content_data, main="Exam 3 Scores by Section", xlab="Section", ylab="Mean Exam Score")
-boxplot(Ex3tot~Gender, data=content_data, main="Exam 3 Scores by Gender", xlab="Gender", ylab="Mean Exam Score")
-
-#basic patterns w/ post scores
-aggregate(ContentPostScore~section+Gender, content_data, mean)
-aggregate(ContentPostScore~section, content_data, mean)
-ttest_CPS_gender <- t.test(ContentPostScore~Gender, content_data)
-print(ttest_CPS_gender)
-ttest_CPS_section <- t.test(ContentPostScore~section, content_data)
-print(ttest_CPS_section)
-boxplot(ContentPostScore~section, data=content_data, main="Post Scores by Section", xlab="Section", ylab="Mean Post Score")
-boxplot(ContentPostScore~Gender, data=content_data, main="Post Scores by Gender", xlab="Gender", ylab="Mean Post Score")
-
-#basic patterns w/ affect
-aggregate(AffectPostScore~section+Gender, affect_data, mean)
-aggregate(AffectPostScore~section, affect_data, mean)
-ttest_affect_gender <- t.test(AffectPostScore~Gender, affect_data)
-print(ttest_affect_gender)
-ttest_affect_section <- t.test(AffectPostScore~section, affect_data)
-print(ttest_affect_section)
-boxplot(AffectPostScore~section, data=affect_data, main="Affect Scores by Section", xlab="Section", ylab="Mean Post Score")
-boxplot(AffectPostScore~Gender, data=affect_data, main="Post Scores by Gender", xlab="Gender", ylab="Mean Post Score")
+# Drop NAs (15 NAs in SumPreQ and 3 NAs in ex3tot): table(is.na(content_data_NEW1$SumPreQ))
+# use this dataset for modeling pre/post scores - include contentID in these models
+content_dataPP <- content_data_NEWPostall[is.na(content_data_NEWPostall$SumPreQ)=="FALSE" & is.na(content_data_NEWPostall$Ex3tot)=="FALSE",]
 
 ##########################
 # lookin' at some models #
 ##########################
 
 ### modeling for exam total
-modAll.1e <- lm(Ex3tot ~ UW_GPA + ContentID + SATM + SATV + ContentPreScore + SOI + section + Gender + section*SOI + section*Gender, data=content_data)
+modAll.1e <- lm(Ex3tot ~ UW_GPA + SATM + SATV + ContentPreScore + SOI + section + Gender + section*SOI + section*Gender, data=content_dataEx)
 # need data=data or to name each variable data$UW_GPA to avoid using attach()
 summary(modAll.1e)
 anova(modAll.1e, test="Chisq") 
 
-# remove ContentID as least sig
-modAll.2e <- lm(Ex3tot ~ UW_GPA + SATM + SATV + ContentPreScore + SOI + section + Gender + section*SOI + section*Gender, data=content_data)
+#remove SOI*section  interaction
+modAll.2e <- lm(Ex3tot ~ UW_GPA + SATM + SATV + ContentPreScore + SOI + section + Gender + section*Gender, data=content_dataEx)
 summary(modAll.2e)
+anova(modAll.2e, test="Chisq") 
 anova(modAll.1e, modAll.2e, test="Chisq") 
 
-#remove SATM as least significant
-modAll.3e <- lm(Ex3tot ~ UW_GPA + SATV + ContentPreScore + SOI + section + Gender + section*SOI + section*Gender, data=content_data)
+#remove SOI*gender  interaction
+modAll.3e <- lm(Ex3tot ~ UW_GPA + SATM + SATV + ContentPreScore + SOI + section + Gender, data=content_dataEx)
 summary(modAll.3e)
+anova(modAll.3e, test="Chisq") 
 anova(modAll.2e, modAll.3e, test="Chisq") 
 
-#remove content pre-score as least significant
-modAll.4e <- lm(Ex3tot ~ UW_GPA + SATV + SOI + section + Gender + section*SOI + section*Gender, data=content_data)
+#remove SATM
+modAll.4e <- lm(Ex3tot ~ UW_GPA + SATV + ContentPreScore + SOI + section + Gender, data=content_dataEx)
 summary(modAll.4e)
+anova(modAll.4e, test="Chisq") 
 anova(modAll.3e, modAll.4e, test="Chisq") 
 
-#remove Section*Gender as least significant
-modAll.5e <- lm(Ex3tot ~ UW_GPA + SATV + SOI + section + Gender + section*SOI, data=content_data)
+#remove SOI
+modAll.5e <- lm(Ex3tot ~ UW_GPA + SATV + ContentPreScore + section + Gender, data=content_dataEx)
 summary(modAll.5e)
+anova(modAll.5e, test="Chisq") 
 anova(modAll.4e, modAll.5e, test="Chisq") 
 
-#all variables now highly significant
-AIC(modAll.1e,modAll.2e,modAll.3e,modAll.4e,modAll.5e)
-BIC(modAll.1e,modAll.2e,modAll.3e,modAll.4e,modAll.5e)
+#remove section
+modAll.6e <- lm(Ex3tot ~ UW_GPA + SATV + ContentPreScore + Gender, data=content_dataEx)
+summary(modAll.6e)
+anova(modAll.6e, test="Chisq") 
+anova(modAll.5e, modAll.6e, test="Chisq") 
 
-#AIC and BIC agree on modAll.2e
+#remove ContentPreScore
+modAll.7e <- lm(Ex3tot ~ UW_GPA + SATV + Gender, data=content_dataEx)
+summary(modAll.7e)
+anova(modAll.7e, test="Chisq") 
+anova(modAll.6e, modAll.7e, test="Chisq") 
+
+#remove SATV
+modAll.8e <- lm(Ex3tot ~ UW_GPA + Gender, data=content_dataEx)
+summary(modAll.8e)
+anova(modAll.8e, test="Chisq") 
+anova(modAll.7e, modAll.8e, test="Chisq") 
+
+#remove Gender
+modAll.9e <- lm(Ex3tot ~ UW_GPA, data=content_dataEx)
+summary(modAll.9e)
+anova(modAll.9e, test="Chisq") 
+anova(modAll.8e, modAll.9e, test="Chisq") 
+
+#all variables now highly significant
+AIC(modAll.1e,modAll.2e,modAll.3e,modAll.4e,modAll.5e,modAll.6e,modAll.7e,modAll.8e,modAll.9e)
+BIC(modAll.1e,modAll.2e,modAll.3e,modAll.4e,modAll.5e,modAll.6e,modAll.7e,modAll.8e,modAll.9e)
+
+#AIC and BIC agree on modAll.8e
 
 ### modeling for ContentPostScore
-modAll.1p <- lm(ContentPostScore ~ UW_GPA + ContentID + SATM + SATV + ContentPreScore + SOI + section + Gender + section*SOI + section*Gender, data=content_data)
+modAll.1p <- lm(ContentPostScore ~ UW_GPA + ContentID + SATM + SATV + ContentPreScore + SOI + section + Gender + section*SOI + section*Gender, data=content_dataPP)
 summary(modAll.1p)
 anova(modAll.1p, test="Chisq") 
 
-#remove SOI*section
-modAll.2p <- lm(ContentPostScore ~ UW_GPA + ContentID + SATM + SATV + ContentPreScore + SOI + section + Gender + section*Gender, data=content_data)
+#remove section*Gender
+modAll.2p <- lm(ContentPostScore ~ UW_GPA + ContentID + SATM + SATV + ContentPreScore + SOI + section + Gender + section*SOI, data=content_dataPP)
 summary(modAll.2p)
+anova(modAll.2p, test="Chisq") 
 anova(modAll.1p, modAll.2p, test="Chisq") 
 
-#remove section*Gender
-modAll.3p <- lm(ContentPostScore ~ UW_GPA + ContentID + SATM + SATV + ContentPreScore + SOI + section + Gender, data=content_data)
+#remove section*SOI
+modAll.3p <- lm(ContentPostScore ~ UW_GPA + ContentID + SATM + SATV + ContentPreScore + SOI + section + Gender, data=content_dataPP)
 summary(modAll.3p)
+anova(modAll.3p, test="Chisq") 
 anova(modAll.2p, modAll.3p, test="Chisq") 
 
 #remove SATM
-modAll.4p <- lm(ContentPostScore ~ UW_GPA + ContentID + SATV + ContentPreScore + SOI + section + Gender, data=content_data)
+modAll.4p <- lm(ContentPostScore ~ UW_GPA + ContentID + SATV + ContentPreScore + SOI + section + Gender, data=content_dataPP)
 summary(modAll.4p)
+anova(modAll.4p, test="Chisq") 
 anova(modAll.3p, modAll.4p, test="Chisq") 
 
 #remove SATV
-modAll.5p <- lm(ContentPostScore ~ UW_GPA + ContentID + ContentPreScore + SOI + section + Gender, data=content_data)
-summary(modAll.4p, modAll.5p, test="Chisq")
-#anova(modAll.modAll.5p, test="Chisq") 
+modAll.5p <- lm(ContentPostScore ~ UW_GPA + ContentID + ContentPreScore + SOI + section + Gender, data=content_dataPP)
+summary(modAll.5p)
+anova(modAll.5p, test="Chisq") 
+anova(modAll.4p, modAll.5p, test="Chisq")
 
 #remove Gender
-modAll.6p <- lm(ContentPostScore ~ UW_GPA + ContentID + ContentPreScore + SOI + section, data=content_data)
-summary(modAll.5p, modAll.6p)
-#anova(modAll.4p, modAll.5p, test="Chisq") 
+modAll.6p <- lm(ContentPostScore ~ UW_GPA + ContentID + ContentPreScore + SOI + section, data=content_dataPP)
+summary(modAll.6p)
+anova(modAll.6p, test="Chisq") 
+anova(modAll.5p, modAll.6p, test="Chisq")
 
 #remove section
-modAll.7p <- lm(ContentPostScore ~ UW_GPA + ContentID + ContentPreScore + SOI, data=content_data)
+modAll.7p <- lm(ContentPostScore ~ UW_GPA + ContentID + ContentPreScore + SOI, data=content_dataPP)
 summary(modAll.7p)
+anova(modAll.7p, test="Chisq") 
 anova(modAll.6p, modAll.7p, test="Chisq") 
 
-#all variables are highly significant
+#remove SOI
+modAll.8p <- lm(ContentPostScore ~ UW_GPA + ContentID + ContentPreScore, data=content_dataPP)
+summary(modAll.8p)
+anova(modAll.8p, test="Chisq") 
+anova(modAll.7p, modAll.8p, test="Chisq") 
 
-#AIC(modAll.1p,modAll.2p,modAll.3p,modAll.4p,modAll.5p)
-#BIC(modAll.1p,modAll.2p,modAll.3p,modAll.4p,modAll.6p)
+#all variables are highly significant
+AIC(modAll.1p,modAll.2p,modAll.3p,modAll.4p,modAll.5p,modAll.6p,modAll.7p,modAll.8p)
+BIC(modAll.1p,modAll.2p,modAll.3p,modAll.4p,modAll.5p,modAll.6p,modAll.7p,modAll.8p)
+
+#IC disagreement: AIC picks modAll.5p; BIC pick modAll.7p
 
 ### modelling for AffectPostScore
-modAll.1b <- polr(as.factor(AffectPostScore) ~ UW_GPA + AffectPreScore + AffectID + as.factor(AC) + SOI + Gender + section*SOI + AC*SOI + section*Gender, data=affect_data,Hess=TRUE) #, na.action=na.omit)
-summary(modAll.1a)
-
-modAll.2b <- polr(as.factor(AffectPostScore) ~ UW_GPA + AffectPreScore + AffectID + as.factor(AC) + SOI + Gender + section*SOI + AC*SOI + section*Gender, data=affect_data,Hess=TRUE) #, na.action=na.omit)
+modAll.1a <- polr(as.factor(AffectPostScore) ~ UW_GPA + AffectPreScore + AffectID + SOI + Gender + section*SOI + AC*SOI + AC*section + section*Gender, data=affect_data,Hess=TRUE) #, na.action=na.omit)
 summary(modAll.1a)
 
 # dropping gender*section
-modAll.2a <- polr(as.factor(AffectPostScore) ~ UW_GPA + AffectPreScore + AffectID + as.factor(AC) + SOI + Gender + section*SOI, data=affect_data,Hess=TRUE) #, na.action=na.omit)
+modAll.2a <- polr(as.factor(AffectPostScore) ~ UW_GPA + AffectPreScore + AffectID + SOI + Gender + section*SOI + AC*SOI + AC*section, data=affect_data,Hess=TRUE) #, na.action=na.omit)
 summary(modAll.2a)
 anova(modAll.1a, modAll.2a)
 
-# dropping Gender
-modAll.3a <- polr(as.factor(AffectPostScore) ~ UW_GPA + AffectPreScore + AffectID + as.factor(AC) + SOI + section*SOI, data=affect_data,Hess=TRUE) #, na.action=na.omit)
+# dropping section*AC
+modAll.3a <- polr(as.factor(AffectPostScore) ~ UW_GPA + AffectPreScore + AffectID + SOI + Gender + section*SOI + AC*SOI, data=affect_data,Hess=TRUE) #, na.action=na.omit)
 summary(modAll.3a)
 anova(modAll.2a, modAll.3a)
 
-# dropping SOI
-modAll.4a <- polr(as.factor(AffectPostScore) ~ UW_GPA + AffectPreScore + AffectID + as.factor(AC) + section*SOI, data=affect_data,Hess=TRUE) #, na.action=na.omit)
+# dropping SOI*AC
+modAll.4a <- polr(as.factor(AffectPostScore) ~ UW_GPA + AffectPreScore + AffectID + SOI + Gender + section*SOI, data=affect_data,Hess=TRUE) #, na.action=na.omit)
+summary(modAll.4a)
 summary(modAll.4a)
 anova(modAll.3a, modAll.4a)
 
-AIC(modAll.1a,modAll.2a,modAll.3a,modAll.4a)
-BIC(modAll.1a,modAll.2a,modAll.3a,modAll.4a)
+# dropping Gender
+modAll.5a <- polr(as.factor(AffectPostScore) ~ UW_GPA + AffectPreScore + AffectID + SOI + section*SOI, data=affect_data,Hess=TRUE) #, na.action=na.omit)
+summary(modAll.5a)
+summary(modAll.5a)
+anova(modAll.4a, modAll.5a)
 
 # dropping SOI
-modAll.1a <- polr(as.factor(AffectPostScore) ~ UW_GPA + AffectPreScore + AffectID + as.factor(AC) + SOI + Gender + section*SOI + section*Gender, data=affect_data,Hess=TRUE) #, na.action=na.omit)
+modAll.6a <- polr(as.factor(AffectPostScore) ~ UW_GPA + AffectPreScore + AffectID + section*SOI, data=affect_data,Hess=TRUE) #, na.action=na.omit)
+summary(modAll.6a)
+summary(modAll.6a)
+anova(modAll.5a, modAll.6a)
 
-AffectPostScore ~ section + SOI + affectID + AC*section + AC*SOI
+# dropping UW_GPA
+modAll.7a <- polr(as.factor(AffectPostScore) ~ AffectPreScore + AffectID + section*SOI, data=affect_data,Hess=TRUE) #, na.action=na.omit)
+summary(modAll.7a)
+anova(modAll.6a, modAll.7a)
 
-#### Notes: ####
-# - keep code in safe place
-# - write a report (models and betas) (rmarkdown)
-# - timesheet (bring hours forward)
-# - remove *all* of the NAs
-# - polr: can't include question ID and cluster in same model. but if we want to know *what* aspect of affect is interacting with SOI, interact cluster with SOI (affect ID, not affect cluster)
-# - (would look like: AffectPostScore ~ section + SOI + affectID + AC*section + AC*SOI) (do full model selection process)
-####
+AIC(modAll.1a,modAll.2a,modAll.3a,modAll.4a,modAll.5a,modAll.6a,modAll.7a)
+BIC(modAll.1a,modAll.2a,modAll.3a,modAll.4a,modAll.5a,modAll.6a,modAll.7a)
+
+#AIC and BIC agree: modAll.5a and modAll.6a equally valid
